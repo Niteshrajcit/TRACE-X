@@ -1,0 +1,36 @@
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+sqlalchemy==2.0.52
+alembic==1.19.1
+pydantic==2.13.4
+pydantic-settings==2.15.0
+python-jose[cryptography]==3.5.0
+bcrypt==5.0.0
+httpx==0.28.1
+faker==40.37.0
+h3==4.5.0
+neo4j==6.2.0
+psycopg2-binary==2.9.12
+python-multipart==0.0.32
+email-validator==2.3.0
+networkx==3.6.1
+
+# evaluation-only (app/graph/evaluation.py - ground-truth comparison metrics,
+# never used in the detection/runtime path itself) and app/graph/corridor.py's
+# Phase 2C gradient-boosted classifier
+scikit-learn==1.9.0
+
+# app/graph/exit_scorer.py - Phase 2D (AI_ML_ARCHITECTURE.md §4), architecture-specified:
+# XGBoost binary classifier for exit-channel scoring, Cox proportional-hazards
+# survival model (lifelines) for time-window prediction
+xgboost==3.2.0
+lifelines==0.30.3
+
+# app/graph/explainer.py - Phase 2F (AI_ML_ARCHITECTURE.md §6), architecture-specified:
+# shap.TreeExplainer for exact (not approximated) Shapley values over the
+# Phase 2D XGBoost classifier
+shap==0.51.0
+
+# test-only
+pytest==9.1.1
+pytest-asyncio==1.4.0

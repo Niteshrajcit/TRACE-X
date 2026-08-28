@@ -1,0 +1,119 @@
+# docs/ARCHITECTURE.md §10. Deliberately no Redis (docs/PRODUCT_EXPERIENCE.md
+# §8.1) and no mock-external-systems / synthetic-data-harness container yet -
+# those land with Phase 2+ (transaction ingestion, the graph builder, and
+# live-drip demo mode). Phase 0/1's stack is exactly: Postgres+PostGIS,
+# Neo4j, the backend, and the frontend dev server.
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: tracex
+      POSTGRES_PASSWORD: tracex_dev_password
+      POSTGRES_DB: tracex
+    ports:
+      - "5432:5432"
+    volumes:
+      - tracex_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracex"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  neo4j:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: neo4j/tracex_dev_password
+      NEO4J_PLUGINS: '[]'
+    ports:
+      - "7474:7474" # browser UI
+      - "7687:7687" # bolt
+    volumes:
+      - tracex_neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Disposable Neo4j instance for the automated test suite only. Added as
+  # Phase 2B foundation repair: ring-detection tests were found writing real
+  # :Ring/MEMBER_OF_RING/Account/Complaint data into the `neo4j` service
+  # above because Postgres is reset per test (SQLite in-memory) but Neo4j
+  # was not - see backend/tests/conftest.py's NEO4J_URI default and
+  # `_assert_test_neo4j_is_isolated`. No named volume: state lives only in
+  # the container's writable layer and is gone on `docker compose down` or
+  # container removal. `profiles: ["test"]` means plain `docker compose up`
+  # (normal dev flow) never starts this - it must be started explicitly:
+  #   docker compose --profile test up -d neo4j-test
+  neo4j-test:
+    image: neo4j:5-community
+    profiles: ["test"]
+    environment:
+      NEO4J_AUTH: neo4j/tracex_dev_password
+      NEO4J_PLUGINS: '[]'
+    ports:
+      - "7475:7474" # browser UI - deliberately different from the dev instance's 7474
+      - "7688:7687" # bolt - deliberately different from the dev instance's 7687
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql://tracex:tracex_dev_password@postgres:5432/tracex
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: tracex_dev_password
+      JWT_SECRET: change-me-to-a-long-random-value
+      PII_HASH_PEPPER: change-me-to-a-long-random-value
+      CORS_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173"]'
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    # [Added during the Docker verification gate] postgres/neo4j had
+    # container-level healthchecks; the backend only had an application
+    # endpoint (GET /health) that nothing was checking automatically. Uses
+    # Python (already in the image) rather than curl/wget, neither of
+    # which python:3.11-slim ships.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+      VITE_WS_BASE_URL: ws://localhost:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5173/', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+volumes:
+  tracex_postgres_data:
+  tracex_neo4j_data:
