@@ -45,9 +45,11 @@ type FormState = typeof emptyForm;
 export function ComplaintPortal() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ incidentReference: string; complaintId: string } | null>(
-    null
-  );
+  const [result, setResult] = useState<{
+    incidentReference: string;
+    complaintId: string;
+    phone: string | null;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // A fresh key per browser form load; if a double-click or a retried
@@ -89,8 +91,13 @@ export function ComplaintPortal() {
         idempotency_key: idempotencyKeyRef.current,
       };
 
+      const submittedPhone = form.victimPhone ? form.victimPhone.trim() : null;
       const response = await createComplaint(payload);
-      setResult({ incidentReference: response.incident_reference, complaintId: response.complaint_id });
+      setResult({
+        incidentReference: response.incident_reference,
+        complaintId: response.complaint_id,
+        phone: submittedPhone,
+      });
       setForm(emptyForm);
       idempotencyKeyRef.current = crypto.randomUUID();
     } catch (err) {
@@ -105,10 +112,11 @@ export function ComplaintPortal() {
   }
 
   if (result) {
+    const cleanDigits = result.phone ? result.phone.replace(/\D/g, "").slice(-10) : null;
     return (
       <div className="centered-shell">
         <div className="card-portal" style={{ maxWidth: 520, textAlign: "center" }}>
-          <h1>Complaint received</h1>
+          <h1>Complaint Registered!</h1>
           <p style={{ marginTop: 12 }}>
             Your TRACE-X incident reference is{" "}
             <strong className="mono" style={{ fontSize: "1.1rem", color: "var(--accent)" }}>
@@ -116,6 +124,11 @@ export function ComplaintPortal() {
             </strong>
             .
           </p>
+          {cleanDigits && (
+            <p style={{ marginTop: 12, padding: "8px 12px", background: "rgba(0, 200, 100, 0.1)", borderRadius: 6, color: "var(--text-main)" }}>
+              📱 Confirmation SMS dispatched to +91 {cleanDigits}
+            </p>
+          )}
           <p className="hint" style={{ marginTop: 8 }}>Keep this reference to check the status of your complaint.</p>
           <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={() => setResult(null)}>
             File another complaint

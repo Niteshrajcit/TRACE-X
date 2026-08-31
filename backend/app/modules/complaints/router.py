@@ -10,19 +10,21 @@ audit) remains later-phase work.
 """
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.audit.service import append_audit_event
 from app.auth.dependencies import get_current_claims, require_roles
 from app.auth.schemas import TokenClaims
+from app.core.config import get_settings
 from app.db.models.complaints import Complaint
 from app.db.models.enums import ComplaintStatus, UserRole
 from app.db.models.predictions import Prediction, RecommendedDeployment
 from app.db.session import get_db
 from app.events.dispatcher import dispatcher
 from app.events.topics import APPROVAL_REQUIRED, COMPLAINT_CREATED, INTERVENTION_RECOMMENDED
+from app.shared.sms import send_sms_async
 from app.graph.corridor import get_prediction_for_complaint
 from app.graph.explainer import ExplanationUnavailable, explain_prediction
 from app.graph.optimizer import OptimizerInputError, optimize_deployment
@@ -67,7 +69,10 @@ CASE_MANAGEMENT_ROLES = (
 
 @router.post("", response_model=ComplaintCreateResponse, status_code=status.HTTP_201_CREATED)
 async def create_complaint(
-    request: ComplaintCreateRequest, response: Response, db: Session = Depends(get_db)
+    request: ComplaintCreateRequest,
+    response: Response,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
 ) -> ComplaintCreateResponse:
     """Public, unauthenticated - stands in for NCRP (docs/PRODUCT.md §5).
     Flow: validate -> persist -> emit complaint.created -> return the
@@ -91,6 +96,13 @@ async def create_complaint(
                 "jurisdiction_id": complaint.jurisdiction_id,
             },
         )
+
+        if request.victim_phone:
+            background_tasks.add_task(
+                send_sms_async,
+                phone=request.victim_phone,
+                reference_id=complaint.incident_reference,
+            )
 
     return ComplaintCreateResponse(
         complaint_id=complaint.complaint_id,
