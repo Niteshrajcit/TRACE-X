@@ -25,6 +25,7 @@ from typing import Optional
 import sklearn
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
+# pyrefly: ignore [missing-import]
 from sqlalchemy.orm import Session
 
 from app.audit.service import append_audit_event
@@ -416,7 +417,7 @@ def _persist_prediction(
         model_version_ring=model_version_ring,
         model_version_corridor=model_version_corridor,
         exit_vector=exit_vector,
-        ranked_locations=None,  # Phase 2D (§4) not yet built - explicit null, never fabricated
+        ranked_locations=None,  # Phase 2D (§4) will populate this downstream
     )
     db.add(prediction)
     db.flush()

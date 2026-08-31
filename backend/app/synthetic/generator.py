@@ -65,7 +65,6 @@ SYNTHETIC_BANK_NAMES = [
     ("Meridian Rural Bank", "MRDB"),
 ]
 
-# (name, state, district, center_lat, center_lon)
 JURISDICTIONS = [
     ("Chennai Central", "Tamil Nadu", "Chennai", 13.0827, 80.2707),
     ("Coimbatore City", "Tamil Nadu", "Coimbatore", 11.0168, 76.9558),
@@ -73,14 +72,59 @@ JURISDICTIONS = [
     ("Hyderabad Central", "Telangana", "Hyderabad", 17.3850, 78.4867),
 ]
 
+REAL_LOCATIONS = {
+    "Chennai Central": [
+        (13.0827, 80.2707, "Chennai Central Station"),
+        (13.0418, 80.2341, "T. Nagar Hub"),
+        (13.0850, 80.2101, "Anna Nagar"),
+        (13.0012, 80.2565, "Adyar Bus Depot"),
+        (13.0522, 80.2121, "Vadapalani"),
+        (12.9750, 80.2210, "Velachery Bypass"),
+        (13.0335, 80.2795, "Marina Beach Road"),
+        (13.0186, 80.2230, "Guindy Industrial Estate"),
+    ],
+    "Coimbatore City": [
+        (11.0168, 76.9558, "Gandhipuram"),
+        (11.0045, 76.9616, "Town Hall"),
+        (11.0287, 76.9362, "RS Puram"),
+        (11.0315, 76.9660, "Cross Cut Road"),
+        (11.0423, 76.9942, "Peelamedu Airport Road"),
+        (10.9995, 76.9647, "Ukkadam Lake Road"),
+        (11.0217, 77.0019, "Singanallur Checkpost"),
+        (11.0123, 76.9745, "Race Course Road"),
+    ],
+    "Bengaluru South": [
+        (12.9716, 77.5946, "Cubbon Park"),
+        (12.9279, 77.5806, "Jayanagar 4th Block"),
+        (12.9121, 77.6446, "HSR Layout Sector 1"),
+        (12.9377, 77.6259, "Koramangala 80ft Road"),
+        (12.9063, 77.5855, "JP Nagar Phase 2"),
+        (12.9591, 77.5760, "Basavanagudi Gandhi Bazaar"),
+        (12.9758, 77.6066, "MG Road Metro"),
+        (12.9304, 77.5849, "South End Circle"),
+    ],
+    "Hyderabad Central": [
+        (17.3850, 78.4867, "Charminar Monument"),
+        (17.4399, 78.4983, "Secunderabad Junction"),
+        (17.4239, 78.4738, "Hussain Sagar Lake"),
+        (17.3949, 78.4730, "Abids Circle"),
+        (17.4262, 78.4485, "Banjara Hills"),
+        (17.4311, 78.4116, "Jubilee Hills"),
+        (17.3616, 78.4747, "Falaknuma Road"),
+        (17.4112, 78.4373, "Golconda Fort"),
+    ],
+}
+
 H3_RESOLUTION = 8
 
 
-def _jitter(center_lat: float, center_lon: float, spread_km: float = 8.0) -> tuple[float, float]:
-    # ~1 degree latitude ≈ 111km; cheap local approximation, fine at city scale.
+def _jitter(center_lat: float, center_lon: float, spread_km: float = 8.0, jurisdiction_name: str = None) -> tuple[float, float, str]:
+    if jurisdiction_name and jurisdiction_name in REAL_LOCATIONS:
+        loc = random.choice(REAL_LOCATIONS[jurisdiction_name])
+        return loc[0], loc[1], loc[2]
     d_lat = random.uniform(-spread_km, spread_km) / 111.0
     d_lon = random.uniform(-spread_km, spread_km) / (111.0 * 0.98)
-    return center_lat + d_lat, center_lon + d_lon
+    return center_lat + d_lat, center_lon + d_lon, "Unknown Location"
 
 
 def seed_jurisdictions(db: Session) -> dict[str, str]:
@@ -181,11 +225,11 @@ def seed_response_units(db: Session, jurisdiction_ids: dict[str, str]) -> None:
         if db.query(ResponseUnit).filter(ResponseUnit.jurisdiction_id == jurisdiction_id).first():
             continue
         for i in range(3):
-            u_lat, u_lon = _jitter(lat, lon, spread_km=6.0)
+            u_lat, u_lon, loc_name = _jitter(lat, lon, spread_km=6.0, jurisdiction_name=name)
             db.add(
                 ResponseUnit(
                     jurisdiction_id=jurisdiction_id,
-                    name=f"{name} Response Unit {i + 1}",
+                    name=f"Patrol Unit at {loc_name}",
                     lat=u_lat,
                     lon=u_lon,
                     status=ResponseUnitStatus.available,
@@ -199,15 +243,17 @@ def seed_exit_channels(db: Session, jurisdiction_ids: dict[str, str]) -> list[Ex
     channels: list[ExitChannel] = []
     for name, _, _, lat, lon in JURISDICTIONS:
         jurisdiction_id = jurisdiction_ids[name]
-        if db.query(ExitChannel).filter(ExitChannel.external_ref.like(f"{name}%")).first():
+        # Idempotency check: if any channel is already mapped to this jurisdiction, skip seeding it.
+        existing_h3 = db.query(H3CellJurisdiction).filter(H3CellJurisdiction.jurisdiction_id == jurisdiction_id).first()
+        if existing_h3 and db.query(ExitChannel).filter(ExitChannel.h3_cell == existing_h3.h3_cell).first():
             continue
 
         for i in range(6):  # atm_cash - the primary Scenario A channel type
-            c_lat, c_lon = _jitter(lat, lon)
+            c_lat, c_lon, loc_name = _jitter(lat, lon, jurisdiction_name=name)
             cell = h3.latlng_to_cell(c_lat, c_lon, H3_RESOLUTION)
             channel = ExitChannel(
                 channel_type=ExitChannelType.atm_cash,
-                external_ref=f"{name} ATM {i + 1}",
+                external_ref=f"ATM at {loc_name}",
                 geo_lat=c_lat,
                 geo_lon=c_lon,
                 h3_cell=cell,
@@ -227,11 +273,11 @@ def seed_exit_channels(db: Session, jurisdiction_ids: dict[str, str]) -> list[Ex
                 db.add(H3CellJurisdiction(h3_cell=cell, jurisdiction_id=jurisdiction_id))
 
         for i in range(2):  # crypto_p2p - Scenario B
-            c_lat, c_lon = _jitter(lat, lon)
+            c_lat, c_lon, loc_name = _jitter(lat, lon, jurisdiction_name=name)
             cell = h3.latlng_to_cell(c_lat, c_lon, H3_RESOLUTION)
             channel = ExitChannel(
                 channel_type=ExitChannelType.crypto_p2p,
-                external_ref=f"{name} Exchange Settlement Branch {i + 1}",
+                external_ref=f"Crypto Exchange near {loc_name}",
                 geo_lat=c_lat,
                 geo_lon=c_lon,
                 h3_cell=cell,
@@ -246,11 +292,11 @@ def seed_exit_channels(db: Session, jurisdiction_ids: dict[str, str]) -> list[Ex
             channels.append(channel)
 
         for i in range(2):  # ecommerce_merchant - Scenario C
-            c_lat, c_lon = _jitter(lat, lon)
+            c_lat, c_lon, loc_name = _jitter(lat, lon, jurisdiction_name=name)
             cell = h3.latlng_to_cell(c_lat, c_lon, H3_RESOLUTION)
             channel = ExitChannel(
                 channel_type=ExitChannelType.ecommerce_merchant,
-                external_ref=f"{name} Fulfilment Center {i + 1}",
+                external_ref=f"Warehouse at {loc_name}",
                 geo_lat=c_lat,
                 geo_lon=c_lon,
                 h3_cell=cell,
@@ -268,8 +314,8 @@ def seed_exit_channels(db: Session, jurisdiction_ids: dict[str, str]) -> list[Ex
     return channels
 
 
-def _make_synthetic_account(db: Session, bank_ids: list[str], jurisdiction_center: tuple[float, float]) -> Account:
-    lat, lon = _jitter(*jurisdiction_center)
+def _make_synthetic_account(db: Session, bank_ids: list[str], jurisdiction_center: tuple[float, float], jurisdiction_name: str) -> Account:
+    lat, lon, _ = _jitter(jurisdiction_center[0], jurisdiction_center[1], jurisdiction_name=jurisdiction_name)
     account = Account(
         account_hash=fake.sha256(),
         bank_id=random.choice(bank_ids) if bank_ids else None,
@@ -292,7 +338,7 @@ def _attach_synthetic_linked_entities(db: Session, account: Account) -> None:
 
 
 def seed_mule_rings(
-    db: Session, bank_ids: list[str], jurisdiction_ids: dict[str, str], ring_count: int = 6
+    db: Session, bank_ids: list[str], jurisdiction_ids: dict[str, str], ring_count: int = 20
 ) -> list[dict]:
     """Ground-truth mule rings (docs/AI_ML_ARCHITECTURE.md §2's "ground
     truth retained" design): each ring is a victim + a chain of 2-4 mule
@@ -330,14 +376,14 @@ def seed_mule_rings(
         center = jurisdiction_centers[jurisdiction_name]
         ring_id = fake.uuid4()
 
-        victim = _make_synthetic_account(db, bank_ids, center)
+        victim = _make_synthetic_account(db, bank_ids, center, jurisdiction_name)
         _attach_synthetic_linked_entities(db, victim)
         victim.ring_id = ring_id
 
         chain_length = random.randint(2, 4)
         mules = []
         for _ in range(chain_length):
-            mule = _make_synthetic_account(db, bank_ids, center)
+            mule = _make_synthetic_account(db, bank_ids, center, jurisdiction_name)
             _attach_synthetic_linked_entities(db, mule)
             mule.ring_id = ring_id
             mules.append(mule)
@@ -363,9 +409,13 @@ def seed_mule_rings(
             db.add(last_txn)
 
         true_exit_channel_id = None
-        jurisdiction_channels = (
-            db.query(ExitChannel).filter(ExitChannel.external_ref.like(f"{jurisdiction_name}%")).all()
-        )
+        # Find exit channels seeded for this jurisdiction via the H3CellJurisdiction mapping.
+        jurisdiction_id = jurisdiction_ids.get(jurisdiction_name)
+        jurisdiction_channels = []
+        if jurisdiction_id:
+            h3_cells = [row[0] for row in db.query(H3CellJurisdiction.h3_cell).filter(H3CellJurisdiction.jurisdiction_id == jurisdiction_id).all()]
+            if h3_cells:
+                jurisdiction_channels = db.query(ExitChannel).filter(ExitChannel.h3_cell.in_(h3_cells)).all()
         if jurisdiction_channels and last_txn is not None:
             true_exit_channel = random.choice(jurisdiction_channels)
             last_txn.exit_channel_id = true_exit_channel.channel_id

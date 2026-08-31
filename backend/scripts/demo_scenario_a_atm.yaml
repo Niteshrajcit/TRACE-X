@@ -1,0 +1,12 @@
+scenario: sih_demo_a_atm
+victim_account: seeded
+fraud_type: upi_fraud
+amount: 200000
+jurisdiction_hint: Chennai
+hops:
+  - {delay_s: 5,  to: mule_1, amount_pct: 0.95, channel: upi}
+  - {delay_s: 8,  to: mule_2, amount_pct: 0.90, channel: upi}
+  - {delay_s: 6,  to: mule_3, amount_pct: 0.85, channel: imps, sibling_of_case: "case_2024_0091"}
+planted_exit_vector: {bearing_deg: 62, distance_km: [3, 7]}
+planted_cash_out: {h3_cell: "8828308281fffff", eta_min: 45, channel_type: atm_cash}
+team_locations: [ {lat: 28.6139, lon: 77.2090}, {lat: 28.6200, lon: 77.2100} ]

@@ -1,0 +1,10 @@
+scenario: sih_demo_c_ecommerce
+victim_account: seeded
+fraud_type: card_cloning
+amount: 150000
+hops:
+  - {delay_s: 2,  to: mule_1, amount_pct: 1.0, channel: imps}
+  - {delay_s: 10, to: mule_2, amount_pct: 0.90, channel: upi}
+planted_exit_vector: {bearing_deg: 210, distance_km: [5, 15]}
+planted_cash_out: {h3_cell: "8828308285fffff", eta_min: 30, channel_type: ecommerce_merchant}
+request_slots: 1

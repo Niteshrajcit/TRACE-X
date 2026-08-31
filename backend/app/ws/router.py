@@ -25,24 +25,23 @@ async def websocket_endpoint(
 ):
     payload = decode_access_token(token)
     if payload is None:
+        logger.error("WebSocket rejected: payload is None")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
     role = payload.get("role")
     claim_jurisdiction = payload.get("jurisdiction_id")
 
-    # Never trust a client-supplied jurisdiction_id for a scoped role - the
-    # channel is always the one on their own token (docs/API_CONTRACT.md §6).
     if role in (UserRole.investigator.value, UserRole.supervisor.value):
         target_jurisdiction = claim_jurisdiction
     else:
-        # auditor/admin have no fixed jurisdiction; they must explicitly ask
-        # for the channel they want to watch.
         target_jurisdiction = jurisdiction_id
 
     if not target_jurisdiction:
+        logger.error("WebSocket rejected: no target_jurisdiction")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
+
 
     await manager.connect(target_jurisdiction, websocket)
     try:

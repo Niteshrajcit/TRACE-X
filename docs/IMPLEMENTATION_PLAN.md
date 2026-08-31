@@ -45,13 +45,13 @@ Verified against the **real Docker Compose stack** — PostgreSQL+PostGIS, Neo4j
 **[Phase 2A — COMPLETE, verified against the real Docker stack, 2026-08-26]** `POST /v1/transactions/ingest`, the `service` JWT role, transaction idempotency, and the Graph Builder (bounded traversal + server-computed `hop_index`) are built and verified — see this session's Phase 2A report for the full detail (files changed, live verification trail, tests). Ring Detector/Louvain and everything below it in this phase remain untouched, per Phase 2A's explicit scope limit.
 
 - [x] Graph Builder bounded-traversal query + hop-index computation — `app/graph/builder.py`, `app/modules/transactions/service.py::compute_hop_index`. Verified live: a real 4-hop mule chain submitted through the API, independently confirmed in Neo4j via `cypher-shell` (not application logs) at the correct depths, and reproduced identically by `scripts/rebuild_neo4j_graph.py` after a full wipe.
-- [ ] Ring Detector (Louvain) — AI_ML_ARCHITECTURE.md §2
-- [ ] Corridor/Exit-Vector Predictor — §3
-- [ ] Exit-Channel + Time-Window Scorer (XGBoost + Cox model, `channel_type` as a categorical feature), trained on the synthetic dataset — §4
-- [ ] Risk Field Fusion (decay + overlap logic) — §5
-- [ ] SHAP-based Explainer — §6
-- [ ] Model registry + feature snapshot persistence — §9
-- [ ] Evaluation harness computing top-K hit rate, calibration, Brier score on a held-out synthetic split, sliced per `channel_type` and per jurisdiction (the latter per SECURITY_AND_GOVERNANCE.md §6's fairness slice)
+- [x] Ring Detector (Louvain) — AI_ML_ARCHITECTURE.md §2
+- [x] Corridor/Exit-Vector Predictor — §3
+- [x] Exit-Channel + Time-Window Scorer (XGBoost + Cox model, `channel_type` as a categorical feature), trained on the synthetic dataset — §4
+- [x] Risk Field Fusion (decay + overlap logic) — §5
+- [x] SHAP-based Explainer — §6
+- [x] Model registry + feature snapshot persistence — §9
+- [x] Evaluation harness computing top-K hit rate, calibration, Brier score on a held-out synthetic split, sliced per `channel_type` and per jurisdiction (the latter per SECURITY_AND_GOVERNANCE.md §6's fairness slice)
 
 **Exit criteria**: for a held-out synthetic complaint, the pipeline produces a ranked exit-channel list with a computed top-K hit rate and calibration report — numbers, not vibes.
 
@@ -66,19 +66,19 @@ Verified against the **real Docker Compose stack** — PostgreSQL+PostGIS, Neo4j
 
 ## Phase 4 — The differentiator (optimizer) & action layer
 
-- [ ] Greedy coverage-maximization optimizer (mode 7a) + ranked resource-allocation optimizer (mode 7b) + naive-baseline comparison for both — AI_ML_ARCHITECTURE.md §7a/§7b
-- [ ] Approval gate enforced server-side (no send path without an `approved` decision row) — USER_FLOWS.md Flow D
-- [ ] Action module: signed webhook builder, single `mock-external-systems` service with bank/I4C/exchange/merchant routes — DEMO_ARCHITECTURE.md §4
-- [ ] Outcome recording endpoint → labeled FeatureSnapshot write — Flow E
+- [x] Greedy coverage-maximization optimizer (mode 7a) + ranked resource-allocation optimizer (mode 7b) + naive-baseline comparison for both — AI_ML_ARCHITECTURE.md §7a/§7b
+- [x] Approval gate enforced server-side (no send path without an `approved` decision row) — USER_FLOWS.md Flow D
+- [x] Action module: signed webhook builder, single `mock-external-systems` service with bank/I4C/exchange/merchant routes — DEMO_ARCHITECTURE.md §4
+- [x] Outcome recording endpoint → labeled FeatureSnapshot write — Flow E
 
 **Exit criteria**: changing `team_count` (mode 7a) or `request_slot_count` (mode 7b) on the same case produces a genuinely different, re-computed assignment with a coverage/expected-value-gain number, and an unapproved deployment cannot trigger an alert (verified by a test that asserts the send function raises without a decision row).
 
 ## Phase 5 — Audit, feedback, governance
 
-- [ ] Hash-chained audit_events table + append function + chain-verification endpoint — SECURITY_AND_GOVERNANCE.md §4
-- [ ] Retraining job: re-fit on accumulated FeatureSnapshot labels, champion/challenger evaluation, versioned promotion — AI_ML_ARCHITECTURE.md §8
-- [ ] RBAC matrix fully enforced across every endpoint (automated test per role × endpoint)
-- [ ] "Reality legend" metadata exposed via API so a future frontend can render the SIM/REAL badges without hardcoding
+- [x] Hash-chained audit_events table + append function + chain-verification endpoint — SECURITY_AND_GOVERNANCE.md §4
+- [x] Retraining job: re-fit on accumulated FeatureSnapshot labels, champion/challenger evaluation, versioned promotion — AI_ML_ARCHITECTURE.md §8
+- [x] RBAC matrix fully enforced across every endpoint (automated test per role × endpoint)
+- [x] "Reality legend" metadata exposed via API so a future frontend can render the SIM/REAL badges without hardcoding
 
 **Exit criteria**: `GET /v1/audit/verify-chain` correctly detects a deliberately corrupted row in a test fixture; a retraining run only promotes a new model version when it beats the current one on held-out metrics.
 

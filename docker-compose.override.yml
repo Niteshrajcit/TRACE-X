@@ -1,0 +1,12 @@
+services:
+  backend:
+    environment:
+      CORS_ORIGINS: '["http://localhost:${FRONTEND_PORT}","http://127.0.0.1:${FRONTEND_PORT}","http://localhost:5173"]'
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+  frontend:
+    environment:
+      VITE_API_BASE_URL: http://localhost:${BACKEND_PORT}
+      VITE_WS_BASE_URL: ws://localhost:${BACKEND_PORT}
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"

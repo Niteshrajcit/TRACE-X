@@ -1,0 +1,11 @@
+scenario: sih_demo_b_crypto
+victim_account: seeded
+fraud_type: investment_fraud
+amount: 500000
+hops:
+  - {delay_s: 10, to: mule_1, amount_pct: 0.98, channel: imps}
+  - {delay_s: 15, to: mule_2, amount_pct: 0.95, channel: upi}
+  - {delay_s: 5,  to: mule_3, amount_pct: 0.90, channel: upi, sibling_of_case: "case_2024_0110"}
+planted_exit_vector: {bearing_deg: 120, distance_km: [10, 20]}
+planted_cash_out: {h3_cell: "8828308283fffff", eta_min: 120, channel_type: crypto_p2p}
+request_slots: 2
