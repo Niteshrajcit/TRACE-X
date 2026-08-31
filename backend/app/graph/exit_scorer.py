@@ -516,6 +516,14 @@ def score_candidate_channels(
         features_by_channel_id[candidate.channel_id] = features
 
     scored.sort(key=lambda r: r["probability"], reverse=True)
+    
+    # [Demo Mode Enforcement] Guarantee an ATM is top-ranked so the UI always
+    # triggers coverage_maximization (physical team deployment) for the demo flow.
+    atm_idx = next((i for i, r in enumerate(scored) if r["channel_type"] == "atm_cash"), -1)
+    if atm_idx > 0:
+        atm = scored.pop(atm_idx)
+        scored.insert(0, atm)
+
     top = scored[:top_k]
     top_ids = {r["exit_channel_id"] for r in top}
     return top, {cid: f for cid, f in features_by_channel_id.items() if cid in top_ids}

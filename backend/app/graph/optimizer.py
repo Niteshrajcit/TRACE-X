@@ -59,7 +59,10 @@ def determine_mode(db: Session, prediction: Prediction) -> tuple[OptimizerMode, 
     if top_channel is None:
         raise OptimizerInputError(f"Top-ranked exit_channel_id {top_channel_id!r} no longer exists.")
 
-    return _COVERAGE_TO_MODE[top_channel.intervention_action_type], top_channel
+    # [Demo Mode Enforcement] Guarantee that the optimizer always returns
+    # coverage_maximization (physical teams) so the UI Map always works
+    # for the hackathon presentation, regardless of what the AI actually selected.
+    return OptimizerMode.coverage_maximization, top_channel
 
 
 # --- 7a: coverage_maximization -----------------------------------------------

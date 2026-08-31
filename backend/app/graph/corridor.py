@@ -22,6 +22,7 @@ authoritative in Postgres by the time a ring exists.
 from datetime import datetime, timezone
 from typing import Optional
 
+import joblib
 import sklearn
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
@@ -355,14 +356,17 @@ def train_corridor_classifier(
 _cached_model: Optional[CorridorModel] = None
 
 
-def get_or_train_model(db: Session) -> CorridorModel:
-    """Process-wide cache, mirroring app/db/neo4j_client.py::get_driver()'s
-    pattern - training is deterministic given the same data and seed, so
-    retraining on every prediction would be wasted, repeated work, not a
-    correctness concern either way."""
+def get_model() -> CorridorModel:
+    """Process-wide cache for the pre-trained production model.
+    Loads the model artifact from disk rather than training dynamically."""
     global _cached_model
     if _cached_model is None:
-        _cached_model, _ = train_corridor_classifier(db)
+        import os
+        model_path = os.path.join(os.getcwd(), settings.corridor_model_path)
+        if not os.path.exists(model_path):
+            raise RuntimeError(f"Corridor model artifact not found at {model_path}. "
+                               f"Please train and export the model using scripts/train_and_export_model.py.")
+        _cached_model = joblib.load(model_path)
     return _cached_model
 
 
@@ -382,7 +386,7 @@ def predict_exit_vector(db: Session, member_account_ids: list[str]) -> Optional[
         return None
 
     features = compute_hop_features(hops)
-    model = get_or_train_model(db)
+    model = get_model()
     bucket, confidence = model.predict_bucket(feature_vector(features))
 
     # Cone width from the model's own confidence in its top bucket -
@@ -486,7 +490,7 @@ def run_corridor_prediction_for_complaint(db: Session, complaint_id: str) -> lis
         if exit_vector is None:
             continue
 
-        model_version_corridor = get_or_train_model(db).version
+        model_version_corridor = get_model().version
         prediction = _persist_prediction(
             db, complaint_id, ring_id, exit_vector, ring.algorithm_version, model_version_corridor
         )

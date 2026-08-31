@@ -5,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.action.handlers import register_action_handlers
-from app.action.mock_router import router as mock_router
 from app.auth.router import router as auth_router
 from app.core.config import get_settings
 from app.core.logging_config import configure_logging, get_logger
@@ -22,6 +21,7 @@ from app.graph.handlers import (
 from app.modules.deployments.router import router as deployments_router
 from app.modules.jurisdictions.router import router as jurisdictions_router
 from app.modules.transactions.router import router as transactions_router
+from app.synthetic.handlers import register_synthetic_handlers
 from app.ws.handlers import register_ws_event_handlers
 from app.ws.router import router as ws_router
 
@@ -76,7 +76,6 @@ app.include_router(transactions_router)
 app.include_router(jurisdictions_router)
 app.include_router(deployments_router)
 app.include_router(audit_router)
-app.include_router(mock_router)
 app.include_router(ws_router)
 
 
@@ -91,4 +90,5 @@ async def on_startup() -> None:
     # Must run after register_ws_event_handlers() - see
     # app/action/handlers.py::register_action_handlers's own docstring.
     register_action_handlers()
+    register_synthetic_handlers()
     logger.info("app.startup", extra={"extra_fields": {"environment": settings.environment}})

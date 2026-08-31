@@ -23,9 +23,8 @@ class Settings(BaseSettings):
     environment: str = "development"  # development | test | production
     log_level: str = "INFO"
 
-    # Database (docs/DATA_MODEL.md §2). Falls back to a local SQLite file when
-    # no DATABASE_URL is supplied, purely so the app can run without Docker.
-    database_url: str = "sqlite:///./tracex_dev.db"
+    # Database (docs/DATA_MODEL.md §2). In production, this must be a real PostgreSQL URL.
+    database_url: str
 
     # Neo4j (docs/DATA_MODEL.md §3). Connectivity is best-effort in Phase 1 -
     # no graph is written yet (Graph Builder lands in Phase 2 with the
@@ -37,12 +36,12 @@ class Settings(BaseSettings):
 
     # Auth (docs/SECURITY_AND_GOVERNANCE.md §3, simplified per
     # docs/PRODUCT_EXPERIENCE.md §8.2: single moderate-TTL token, no refresh).
-    jwt_secret: str = "dev-only-secret-change-in-deployment"
+    jwt_secret: str
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 240
 
     # PII hashing pepper (docs/SECURITY_AND_GOVERNANCE.md §2).
-    pii_hash_pepper: str = "dev-only-pepper-change-in-deployment"
+    pii_hash_pepper: str
 
     cors_origins: List[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
@@ -68,6 +67,9 @@ class Settings(BaseSettings):
     # architecture or synthetic data actually justifies yet.
     risk_field_half_life_hours: float = 6.0
 
+    # Path to the pre-trained corridor ML model artifact (Phase 2C -> Prod)
+    corridor_model_path: str = "models/corridor_model.joblib"
+
     # Intervention Optimizer (docs/AI_ML_ARCHITECTURE.md §7a, Phase 2G) - two
     # values the architecture names as required inputs ("effective coverage
     # radius", "travel-time matrix... Haversine distance as a proxy") but
@@ -81,7 +83,7 @@ class Settings(BaseSettings):
     # signature header on every outbound alert payload, verified by the
     # receiver") - same .env-based secrets pattern as jwt_secret/
     # pii_hash_pepper above, not a new secrets-management approach.
-    webhook_hmac_secret: str = "dev-only-webhook-secret-change-in-deployment"
+    webhook_hmac_secret: str
     team_response_speed_kmh: float = 30.0  # urban police response, used only to convert
     # Haversine distance into a travel-time proxy (§7a's own documented approach)
 

@@ -18,6 +18,7 @@ import os
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET", "test-secret-not-for-deployment")
 os.environ.setdefault("PII_HASH_PEPPER", "test-pepper-not-for-deployment")
+os.environ.setdefault("WEBHOOK_HMAC_SECRET", "test-webhook-secret-not-for-deployment")
 os.environ.setdefault("ENVIRONMENT", "test")
 
 # Phase 2B foundation repair: ring-detection tests were found writing real

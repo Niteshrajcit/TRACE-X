@@ -73,6 +73,7 @@ services:
       NEO4J_PASSWORD: tracex_dev_password
       JWT_SECRET: change-me-to-a-long-random-value
       PII_HASH_PEPPER: change-me-to-a-long-random-value
+      WEBHOOK_HMAC_SECRET: change-me-to-a-long-random-value
       CORS_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173"]'
     ports:
       - "8000:8000"
