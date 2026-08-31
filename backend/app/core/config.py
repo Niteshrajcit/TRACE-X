@@ -11,7 +11,7 @@ docker-compose.yml always injects a real postgresql:// URL for the
 documented, canonical deployment.
 """
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -86,6 +86,9 @@ class Settings(BaseSettings):
     webhook_hmac_secret: str
     team_response_speed_kmh: float = 30.0  # urban police response, used only to convert
     # Haversine distance into a travel-time proxy (§7a's own documented approach)
+
+    # Fast2SMS API Key for citizen incident registration SMS notifications
+    fast2sms_api_key: Optional[str] = None
 
 
 @lru_cache
